@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
+	"os"
 )
 
 type home struct{}
@@ -26,7 +26,15 @@ func main() {
 	flag.StringVar(&cfg.staticDir, "static-dir", "./ui/static", "Path to static assets")
 	flag.Parse()
 
-	fmt.Println("Starting")
+	// setup logger
+	infolog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+
+	errorlog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+
+	app := application{
+		errorlog: errorlog,
+		infolog:  infolog,
+	}
 
 	mux := http.NewServeMux()
 
@@ -35,11 +43,15 @@ func main() {
 
 	mux.Handle("/cu", &home{})
 
-	mux.HandleFunc("/", HomeHandler)
-	mux.HandleFunc("/snippet/view", SnippetView)
-	mux.HandleFunc("/snippet/create", SnippetCreate)
+	mux.HandleFunc("/", app.HomeHandler)
+	mux.HandleFunc("/snippet/view", app.SnippetView)
+	mux.HandleFunc("/snippet/create", app.SnippetCreate)
 
-	log.Print("Starting server on http://127.0.0.1" + cfg.addr)
-	err := http.ListenAndServe(cfg.addr, mux)
-	log.Fatal(err)
+	infolog.Printf("Starting server on http://127.0.0.1%s", cfg.addr)
+
+	srv := http.Server{Addr: cfg.addr, Handler: mux}
+	srv.ErrorLog = errorlog
+	err := srv.ListenAndServe()
+
+	errorlog.Fatal(err)
 }

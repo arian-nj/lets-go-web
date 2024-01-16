@@ -8,9 +8,14 @@ import (
 	"strconv"
 )
 
-func HomeHandler(w http.ResponseWriter, r *http.Request) {
+type application struct {
+	errorlog *log.Logger
+	infolog  *log.Logger
+}
+
+func (app *application) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-		http.NotFound(w, r)
+		app.notFound(w)
 		return
 	}
 	files := []string{
@@ -21,32 +26,30 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	tp, err := template.ParseFiles(files...)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		app.serverError(w, r, err)
 		return
 	}
 	err = tp.ExecuteTemplate(w, "base", nil)
 	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		app.serverError(w, r, err)
 	}
 }
 
-func SnippetView(w http.ResponseWriter, r *http.Request) {
+func (app *application) SnippetView(w http.ResponseWriter, r *http.Request) {
 	id_par := r.URL.Query().Get("id")
 	id_int, err := strconv.Atoi(id_par)
 	if err != nil || id_int < 1 { // invalid id
-		http.NotFound(w, r)
+		app.notFound(w)
 		return
 	}
 
 	fmt.Fprintf(w, "View Snippet %d", id_int)
 }
 
-func SnippetCreate(w http.ResponseWriter, r *http.Request) {
+func (app *application) SnippetCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		app.clientError(w, http.StatusMethodNotAllowed)
 		return
 	}
 	w.Write([]byte("Create a Snippet"))
