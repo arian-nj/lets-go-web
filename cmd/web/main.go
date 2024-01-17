@@ -36,20 +36,13 @@ func main() {
 		infolog:  infolog,
 	}
 
-	mux := http.NewServeMux()
-
-	fileServer := http.FileServer(http.Dir("./ui/static/"))
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
-
-	mux.Handle("/cu", &home{})
-
-	mux.HandleFunc("/", app.HomeHandler)
-	mux.HandleFunc("/snippet/view", app.SnippetView)
-	mux.HandleFunc("/snippet/create", app.SnippetCreate)
-
 	infolog.Printf("Starting server on http://127.0.0.1%s", cfg.addr)
 
-	srv := http.Server{Addr: cfg.addr, Handler: mux}
+	routes := app.routes()
+	srv := http.Server{
+		Addr:    cfg.addr,
+		Handler: routes,
+	}
 	srv.ErrorLog = errorlog
 	err := srv.ListenAndServe()
 
