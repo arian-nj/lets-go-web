@@ -1,38 +1,46 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"html/template"
-	"log"
 	"net/http"
 	"strconv"
-)
 
-type application struct {
-	errorlog *log.Logger
-	infolog  *log.Logger
-}
+	"github.com/arian-nj/snippetbox/internals/models"
+)
 
 func (app *application) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		app.notFound(w)
 		return
 	}
-	files := []string{
-		"./ui/html/partials/nav.tmpl",
-		"./ui/html/base.tmpl",
-		"./ui/html/pages/home.tmpl",
-	}
-
-	tp, err := template.ParseFiles(files...)
+	snippets, err := app.snippets.Latest()
 	if err != nil {
-		app.serverError(w, r, err)
+		app.serverError(w, err)
 		return
 	}
-	err = tp.ExecuteTemplate(w, "base", nil)
-	if err != nil {
-		app.serverError(w, r, err)
+	for _, snippet := range snippets {
+		fmt.Fprintf(w, "%+v\n", snippet)
 	}
+	// if r.URL.Path != "/" {
+	// 	app.notFound(w)
+	// 	return
+	// }
+	// files := []string{
+	// 	"./ui/html/partials/nav.tmpl",
+	// 	"./ui/html/base.tmpl",
+	// 	"./ui/html/pages/home.tmpl",
+	// }
+
+	// tp, err := template.ParseFiles(files...)
+	// if err != nil {
+	// 	app.serverError(w, r, err)
+	// 	return
+	// }
+	// err = tp.ExecuteTemplate(w, "base", nil)
+	// if err != nil {
+	// 	app.serverError(w, r, err)
+	// }
 }
 
 func (app *application) SnippetView(w http.ResponseWriter, r *http.Request) {
@@ -42,8 +50,17 @@ func (app *application) SnippetView(w http.ResponseWriter, r *http.Request) {
 		app.notFound(w)
 		return
 	}
+	snippet, err := app.snippets.Get(id_int)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecord) {
+			app.notFound(w)
+		} else {
+			app.serverError(w, err)
+		}
+		return
+	}
 
-	fmt.Fprintf(w, "View Snippet %d", id_int)
+	fmt.Fprintf(w, "%+v", snippet)
 }
 
 func (app *application) SnippetCreate(w http.ResponseWriter, r *http.Request) {
@@ -52,5 +69,13 @@ func (app *application) SnippetCreate(w http.ResponseWriter, r *http.Request) {
 		app.clientError(w, http.StatusMethodNotAllowed)
 		return
 	}
-	w.Write([]byte("Create a Snippet"))
+	title := "O snail"
+	content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n–Kobayashi Issa"
+	expires := 7
+	inserted_id, err := app.snippets.Insert(title, content, expires)
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view?id=%d", inserted_id), http.StatusSeeOther)
 }
