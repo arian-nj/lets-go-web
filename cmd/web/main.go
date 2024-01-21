@@ -25,14 +25,21 @@ type Config struct {
 
 var cfg Config
 
+type errorLevels struct {
+	err  *log.Logger
+	info *log.Logger
+}
+
+// dependency injection
 type application struct {
-	errorlog *log.Logger
-	infolog  *log.Logger
+	log      errorLevels
 	snippets models.SnippetModel
 }
 
 func main() {
-	// Get cli glags
+	app := application{}
+
+	// Command line flags
 	flag.StringVar(&cfg.addr, "addr", ":4000", "HTTP network Adrress")
 	flag.StringVar(&cfg.staticDir, "static-dir", "./ui/static", "Path to static assets")
 	dsn := flag.String("dsn", "web:pass@/snippetbox?parseTime=true", "MySql data source name")
@@ -40,33 +47,34 @@ func main() {
 
 	// setup logger
 	infolog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
-
 	errorlog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	app := application{
-		errorlog: errorlog,
-		infolog:  infolog,
-	}
+	app.log.err = errorlog
+	app.log.info = infolog
+
+	// setup db
 	db, err := OpenDB(*dsn)
 	if err != nil {
-		app.errorlog.Println(err)
+		app.log.err.Println(err)
 	} else {
-		app.infolog.Println("Succesful connction to database")
+		app.log.info.Println("Succesful connction to database")
 	}
+
 	defer db.Close()
 
-	app.snippets = models.SnippetModel{DB: db}
+	app.snippets = models.SnippetModel{DB: db} // look at me
 
 	infolog.Printf("Starting server on http://127.0.0.1%s", cfg.addr)
 
+	// set routers
 	routes := app.routes()
 	srv := http.Server{
 		Addr:    cfg.addr,
 		Handler: routes,
 	}
 	srv.ErrorLog = errorlog
-	err = srv.ListenAndServe()
 
+	err = srv.ListenAndServe()
 	errorlog.Fatal(err)
 }
 

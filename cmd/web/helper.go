@@ -8,8 +8,8 @@ import (
 
 func (app *application) serverError(w http.ResponseWriter, err error) {
 	trace := fmt.Sprintf("%s\n%s", err.Error(), debug.Stack())
-	app.errorlog.Print(trace)
-	app.errorlog.Output(2, trace)
+	app.log.err.Print(trace)
+	app.log.err.Output(2, trace)
 
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
